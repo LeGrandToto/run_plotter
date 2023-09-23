@@ -8,5 +8,7 @@ setup(
         packages= find_packages(where= "run_plotter"),
         install_requires= [
             "panel",
+            "folium",
+            "gpx",
             ],
     )
