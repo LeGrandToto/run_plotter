@@ -5,8 +5,8 @@ setup(
         name= "run_plotter",
         author= "Marc Amberg",
         description= "Simple panel application for measuring run progress.",
-        packages= find_packages("run_plotter"),
-        requires= [
+        packages= find_packages(where= "run_plotter"),
+        install_requires= [
             "panel",
             ],
     )
