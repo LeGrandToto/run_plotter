@@ -1,7 +1,6 @@
-from folium.folium import validate_location
 from gpx.waypoint import Waypoint
+import ipyleaflet
 import panel as pn
-import folium
 from param import Event
 import plotly.express as px
 from gpx.gpx import GPX
@@ -11,26 +10,57 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def create_folium(tracks: list[GPX]):
-    tiles = ["OpenStreetMap", "CartoDB positron", "Stamen Terrain", "Stamen Watercolor", "CartoDB dark_matter"]
-    default_tile_index = 2
-    
-    folium_map = folium.Map(location= [tracks[0].segments[0].points[0].lat, tracks[0].segments[0].points[0].lon], zoom_start = 16, tiles = tiles[default_tile_index])
-    for tile_layer in tiles[:default_tile_index] + tiles[default_tile_index + 1:]:
-        folium.TileLayer(tile_layer).add_to(folium_map)
-    folium.LayerControl().add_to(folium_map)
+pn.extension('ipywidgets', 'plotly')
+
+def create_map(tracks: list[GPX]):
+    # AwesomeIcon list: https://fontawesome.com/v4/icons/
+    from ipyleaflet import Map, basemaps, Marker, Polyline, AwesomeIcon
+    from ipywidgets import Layout
+    ipyleaflet_map = Map(
+            center= (float(tracks[0].segments[0].points[0].lat), float(tracks[0].segments[0].points[0].lon)),
+            zoom=16,
+            basemap = basemaps.Stamen.Terrain,
+            layout = Layout(height= "800px")
+            )
     for track in tracks:
         first_point = track.segments[0].points[0]
         last_point = track.segments[0].points[-1]
 
-        folium.PolyLine(((point.lat, point.lon) for point in track.segments[0].points), tooltip= "Sunday Run").add_to(folium_map)
-        folium.Marker(location= [last_point.lat, last_point.lon],
-                      icon= folium.Icon(color= "red", icon= 'ok-sign')
-                      ).add_to(folium_map)
-        folium.Marker(location= [first_point.lat, first_point.lon],
-                      icon= folium.Icon(color= "green", icon= 'ok-sign')
-                      ).add_to(folium_map)
-    return pn.pane.plot.Folium(folium_map, height= 800)
+        ipyleaflet_map.add_layer(
+                Polyline( 
+                    locations = [
+                        [
+                            float(point.lat),
+                            float(point.lon)
+                        ] for point in track.segments[0].points
+                    ],
+                    # color = "green",
+                    fill= False,
+                    smooth_factor= 5,
+                )
+            )
+
+        ipyleaflet_map.add_layer(
+                Marker(
+                    location= [float(last_point.lat), float(last_point.lon)],
+                    icon= AwesomeIcon(
+                        name="check-circle-o",
+                        marker_color= "red"
+                    ),
+                    draggable= False,
+                )
+            )
+        ipyleaflet_map.add_layer(
+                Marker(
+                    location= [float(first_point.lat), float(first_point.lon)],
+                    icon = AwesomeIcon(
+                        name="check-circle-o",
+                        marker_color= "green"
+                    ),
+                    draggable= False,
+                )
+            )
+    return pn.panel(ipyleaflet_map)
 
 def create_speed_plots(file_paths):
     def compute_speed(current: Waypoint, next_loc: Waypoint):
@@ -51,26 +81,29 @@ def create_speed_plots(file_paths):
         plots.append(plotly_object)
     return pn.FlexBox(*plots)
 
-marker: folium.Marker = None
+marker: ipyleaflet.Marker = None
 def main(track_files):
     if not track_files:
         return "No track found!"
     tracks = [GPX.from_file(file_path).tracks[0] for file_path in track_files]
-    folium_map = create_folium(tracks)
+    folium_map = create_map(tracks)
     speed_plots = create_speed_plots(track_files)
 
     template = pn.template.BootstrapTemplate(
             title= "Run Plotter",
             main= [
+                    # "Hello",
                     pn.Column(folium_map,),
                     speed_plots,
                 ],
             )
 
     def speed_plot_callback(event: Event):
+        from ipyleaflet import Marker, AwesomeIcon
         global marker
-        print(event)
         if event.name == "hover_data":
+            if event.old:
+                folium_map.object.remove_layer(marker)
             if event.new:
                 for track in event.new["points"]:
                     # track_index = track["curveNumber"]
@@ -78,20 +111,20 @@ def main(track_files):
                     segment_index = track["pointIndex"]
                     selected_segment = tracks[track_index].segments[0].points[segment_index]
                     # pprint(dir(folium_map.object))
-                    if marker:
-                        marker.location = validate_location([selected_segment.lat, selected_segment.lon])
-                    else:
-                        marker = folium.Marker(
-                                location= [selected_segment.lat, selected_segment.lon],
-                                icon= folium.Icon()
-                            )
-                        marker.add_to(folium_map.object)
-                    template.main[0][0] = pn.pane.plot.Folium(folium_map.object, height= 800)
+                    marker = Marker(
+                            location= [float(selected_segment.lat), float(selected_segment.lon)],
+                            icon= AwesomeIcon(
+                                name= "dot-circle-o"
+                            ),
+                            draggable= False,
+                        )
+                    folium_map.object.add_layer(marker)
+
 
     for speed_plot in speed_plots:
         speed_plot.param.watch(speed_plot_callback, ["hover_data"])
-
-    return template
+    return pn.Column(*template.main)
+    # return template
 
 def parse_args():
     import argparse

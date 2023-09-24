@@ -8,7 +8,9 @@ setup(
         packages= find_packages(where= "run_plotter"),
         install_requires= [
             "panel",
-            "folium",
+            "ipyleaflet",
+            "ipywidgets_bokeh",
+            "ipykernel",
             "gpx",
             "plotly",
             ],
