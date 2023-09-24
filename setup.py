@@ -10,5 +10,6 @@ setup(
             "panel",
             "folium",
             "gpx",
+            "plotly",
             ],
     )
