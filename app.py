@@ -10,22 +10,28 @@ def create_folium(file_paths: list[str]):
         return "No track found!"
 
     tracks = [GPX.from_file(file_path).tracks[0] for file_path in file_paths]
+
+    tiles = ["OpenStreetMap", "CartoDB positron", "Stamen Terrain", "Stamen Watercolor", "CartoDB dark_matter"]
+    default_tile_index = 2
     
-    map = folium.Map(location= [tracks[0].segments[0].points[0].lat, tracks[0].segments[0].points[0].lon], zoom_start = 16)
+    folium_map = folium.Map(location= [tracks[0].segments[0].points[0].lat, tracks[0].segments[0].points[0].lon], zoom_start = 16, tiles = tiles[default_tile_index])
+    for tile_layer in tiles[:default_tile_index] + tiles[default_tile_index + 1:]:
+        folium.TileLayer(tile_layer).add_to(folium_map)
+    folium.LayerControl().add_to(folium_map)
     for track in tracks:
         first_point = track.segments[0].points[0]
         last_point = track.segments[0].points[-1]
 
-        folium.PolyLine(((point.lat, point.lon) for point in track.segments[0].points), tooltip= "Sunday Run").add_to(map)
+        folium.PolyLine(((point.lat, point.lon) for point in track.segments[0].points), tooltip= "Sunday Run").add_to(folium_map)
         folium.Marker(location= [last_point.lat, last_point.lon],
                       icon= folium.Icon(color= "red", icon= 'ok-sign')
-                      ).add_to(map)
+                      ).add_to(folium_map)
         folium.Marker(location= [first_point.lat, first_point.lon],
                       icon= folium.Icon(color= "green", icon= 'ok-sign')
-                      ).add_to(map)
-    return pn.pane.plot.Folium(map, height= 800)
+                      ).add_to(folium_map)
+    return pn.pane.plot.Folium(folium_map, height= 800)
 
-def create_speed_plot(file_paths):
+def create_speed_plots(file_paths):
     def compute_speed(current: Waypoint, next_loc: Waypoint):
         distance = sqrt((current.lat - next_loc.lat) ** 2 + (current.lon - next_loc.lon) ** 2) * 25000/360
         # import pdb; pdb.set_trace()
@@ -43,11 +49,14 @@ def create_speed_plot(file_paths):
     return pn.Column(*plots)
 
 def main(track_files):
+    folium_map = create_folium(track_files)
+    speed_plots = create_speed_plots(track_files)
+
     template = pn.template.BootstrapTemplate(
             title= "Run Plotter",
             main= [
-                    create_folium(track_files),
-                    create_speed_plot(track_files),
+                    folium_map,
+                    speed_plots,
                 ],
             )
 
