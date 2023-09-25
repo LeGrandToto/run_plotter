@@ -7,6 +7,7 @@ from gpx.gpx import GPX
 from math import sqrt
 
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def create_map(tracks: list[GPX]):
             center= (float(tracks[0].segments[0].points[0].lat), float(tracks[0].segments[0].points[0].lon)),
             zoom=16,
             basemap = basemaps.Stamen.Terrain,
-            layout = Layout(height= "800px")
+            layout = Layout(height= "775px")
             )
     for track in tracks:
         first_point = track.segments[0].points[0]
@@ -77,9 +78,12 @@ def create_speed_plots(file_paths):
         surface.layout.xaxis["title"] = {"text": "Time"}
         surface.layout.yaxis["title"] = {"text": "Speed in km/h"}
         plotly_object = pn.pane.Plotly(surface)
+        plotly_object.width_policy = "max"
         plotly_object.index = index
-        plots.append(plotly_object)
-    return pn.FlexBox(*plots)
+        plots.append((os.path.basename(file_path), plotly_object))
+    tabs = pn.Tabs(*plots)
+    tabs.width_policy = "max"
+    return tabs
 
 marker: ipyleaflet.Marker = None
 def main(track_files):
