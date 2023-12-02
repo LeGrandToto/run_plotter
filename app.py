@@ -86,8 +86,6 @@ class TrackManager(Parameterized):
                     }
                 )
 
-
-            # TODO: Re-use Markers instead of creating new ones all the time.
             ipyleaflet_map.add_layer(
                     Marker(
                         location= [float(last_point.lat), float(last_point.lon)],
