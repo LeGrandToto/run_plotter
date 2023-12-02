@@ -26,7 +26,6 @@ class TrackManager(Parameterized):
 
     @param.depends("tracks")
     def create_map(self):
-        print(f"{self.tracks=}")
         if not self.tracks:
         # if True :
             # self.map.object.center = (0,0)
@@ -46,22 +45,35 @@ class TrackManager(Parameterized):
 
             return pn.panel(ipyleaflet_map)
             return "Please select a track"
-        tracks = [self.param.tracks.objects.get(track) for track in self.tracks]
-        print(f"{tracks=}")
+        tracks = {track: self.param.tracks.objects.get(track) for track in self.tracks}
         # AwesomeIcon list: https://fontawesome.com/v4/icons/
         from ipyleaflet import Map, basemaps, Marker, Polyline, AwesomeIcon, AntPath
         from ipywidgets import Layout
         ipyleaflet_map = self.map.object
-        ipyleaflet_map.center= (float(tracks[0].segments[0].points[0].lat), float(tracks[0].segments[0].points[0].lon)),
+        ipyleaflet_map.center= (float(tracks[self.tracks[0]].segments[0].points[0].lat), float(tracks[self.tracks[0]].segments[0].points[0].lon)),
         # self.map.object = ipyleaflet_map
 
         # return self.map
 
         draw_control = ipyleaflet_map.controls[-1]
 
+        def update_track(*args, **kwargs):
+            logger.warning(f"{args=}")
+            logger.warning(f"{kwargs=}")
+            track_index = kwargs.get('geo_json', {}).get('track_index')
+            if track_index is not None:
+                new_locations = [(lat, lon) for lon, lat in kwargs['geo_json']['geometry']['coordinates']]
+                for point, new_location in zip(tracks[track_index].segments[0].points, new_locations):
+                    point.lat = new_location[0]
+                    point.lon = new_location[1]
+                print(self)
+
+        # TODO: Only add the callback once
+        draw_control.on_draw(update_track)
+
         draw_data = []
 
-        for index, track in enumerate(tracks):
+        for index, track in tracks.items():
             first_point = track.segments[0].points[0]
             last_point = track.segments[0].points[-1]
 
@@ -94,6 +106,7 @@ class TrackManager(Parameterized):
                     }
                 )
 
+            # TODO: Re-use Markers instead of creating new ones all the time.
             ipyleaflet_map.add_layer(
                     Marker(
                         location= [float(last_point.lat), float(last_point.lon)],
@@ -138,39 +151,8 @@ def create_map(tracks: list[GPX]):
             layout = Layout(height= "775px")
             )
 
-    # return pn.panel(ipyleaflet_map)
-
-    class CustomDrawControl(ipyleaflet.DrawControl):
-
-        def _handle_leaflet_event(self, _, content, buffers):
-            pprint(f"{_=}")
-            pprint(f"{content=}")
-            pprint(f"{buffers=}")
-            return super()._handle_leaflet_event(_, content, buffers)
-
-        @property
-        def data(self):
-            return self._data
-
-        @data.setter
-        def data(self, value):
-            self._data = value
-
-    # draw_control = CustomDrawControl()
-
     draw_control = ipyleaflet.DrawControl()
 
-    def log_everything(*args, **kwargs):
-        local_copy = ipyleaflet_map
-        # args[0].data = []
-        logger.warning(f"{args=}")
-        logger.warning(f"{kwargs=}")
-        track_index = kwargs.get('geo_json', {}).get('track_index')
-        if track_index:
-            new_locations = [(lat, lon) for lon, lat in kwargs['geo_json']['geometry']['coordinates']]
-
-
-    draw_control.on_draw(log_everything)
 
     draw_control.polyline =  {
         "shapeOptions": {
@@ -350,7 +332,7 @@ def main(track_files):
                     track_manager,
                     # folium_map,
                     track_manager.create_map,
-                    # speed_plots,
+                    speed_plots,
                 ],
             )
  
