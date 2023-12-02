@@ -51,6 +51,7 @@ class TrackManager(Parameterized):
         draw_control.on_draw(update_track)
 
         draw_data = []
+        ipyleaflet_map.layers = ipyleaflet_map.layers[:1]
 
         for index, track in tracks.items():
             first_point = track.segments[0].points[0]
@@ -84,6 +85,7 @@ class TrackManager(Parameterized):
                         }
                     }
                 )
+
 
             # TODO: Re-use Markers instead of creating new ones all the time.
             ipyleaflet_map.add_layer(
