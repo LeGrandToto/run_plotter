@@ -235,20 +235,24 @@ def main(track_files):
             track.to_file(file_path)
 
     save_button.on_click(save_callback)
+
+    # template = pn.template.BootstrapTemplate(
+    template = pn.template.FastListTemplate(
             title= "Run Plotter",
-            main= [
+            main= [pn.Column(*[
                     # "Hello",
                     pn.Row(track_manager, save_button),
                     # folium_map,
                     track_manager.create_map,
                     # speed_plots,
                     track_manager.create_speed_plots,
-                ],
+                    ]),
+                   ]
             )
  
 
-    return pn.Column(*template.main)
-    # return template
+    # return pn.Column(*template.main)
+    return template
 
 def parse_args():
     import argparse
