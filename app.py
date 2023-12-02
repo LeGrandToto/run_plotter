@@ -115,6 +115,7 @@ class TrackManager(Parameterized):
         return self.map
 
 
+    @param.depends("tracks")
     def create_speed_plots(self):
         if self.tracks is None:
             return None
@@ -135,8 +136,34 @@ class TrackManager(Parameterized):
             plotly_object.width_policy = "max"
             plotly_object.index = index
             plots.append((os.path.basename(track_index), plotly_object))
+
+        def speed_plot_callback(event: Event):
+            from ipyleaflet import Marker, AwesomeIcon
+            if event.name == "hover_data":
+                if event.old:
+                    self.ipyleaflet_map.object.remove_layer(self.marker)
+                if event.new:
+                    for track in event.new["points"]:
+                        # track_index = track["curveNumber"]
+                        track_index = event.cls.index
+                        segment_index = track["pointIndex"]
+                        selected_segment = self.param.tracks.objects[self.tracks[track_index]].segments[0].points[segment_index]
+                        # pprint(dir(folium_map.object))
+                        self.marker = Marker(
+                                location= [float(selected_segment.lat), float(selected_segment.lon)],
+                                icon= AwesomeIcon(
+                                    name= "dot-circle-o"
+                                ),
+                                draggable= False,
+                            )
+                        self.ipyleaflet_map.object.add_layer(self.marker)
+
         tabs = pn.Tabs(*plots)
         tabs.width_policy = "max"
+
+        for speed_plot in tabs:
+            speed_plot.param.watch(speed_plot_callback, ["hover_data"])
+
         return tabs
 
 
@@ -318,7 +345,6 @@ def create_seed_plots(file_paths):
     tabs.width_policy = "max"
     return tabs
 
-marker: ipyleaflet.Marker = None
 def main(track_files):
     if not track_files:
         return pn.pane.Markdown("No track found!")
@@ -341,31 +367,6 @@ def main(track_files):
                 ],
             )
  
-    # def speed_plot_callback(event: Event):
-    #     from ipyleaflet import Marker, AwesomeIcon
-    #     global marker
-    #     if event.name == "hover_data":
-    #         if event.old:
-    #             folium_map.object.remove_layer(marker)
-    #         if event.new:
-    #             for track in event.new["points"]:
-    #                 # track_index = track["curveNumber"]
-    #                 track_index = event.cls.index
-    #                 segment_index = track["pointIndex"]
-    #                 selected_segment = tracks[track_index].segments[0].points[segment_index]
-    #                 # pprint(dir(folium_map.object))
-    #                 marker = Marker(
-    #                         location= [float(selected_segment.lat), float(selected_segment.lon)],
-    #                         icon= AwesomeIcon(
-    #                             name= "dot-circle-o"
-    #                         ),
-    #                         draggable= False,
-    #                     )
-    #                 folium_map.object.add_layer(marker)
-    #
-    #
-    # for speed_plot in speed_plots:
-    #     speed_plot.param.watch(speed_plot_callback, ["hover_data"])
 
     return pn.Column(*template.main)
     # return template
