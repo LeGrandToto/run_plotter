@@ -27,33 +27,13 @@ class TrackManager(Parameterized):
     @param.depends("tracks")
     def create_map(self):
         if not self.tracks:
-        # if True :
-            # self.map.object.center = (0,0)
-            return self.map
-            from ipyleaflet import Map, basemaps, Marker, Polyline, AwesomeIcon, AntPath
-            from ipywidgets import Layout
-            ipyleaflet_map = Map(
-                    center= (0, 0),
-                    zoom=16,
-                    # basemap = basemaps.Stamen.Terrain,
-                    # basemap = basemaps.OpenTopoMap,
-                    # basemap = basemaps.Esri.DeLorme,
-                    basemap = basemaps.OpenStreetMap.HOT,
-                    # basemap = ,
-                    layout = Layout(height= "775px")
-                    )
+            return self.ipyleaflet_map
 
-            return pn.panel(ipyleaflet_map)
-            return "Please select a track"
         tracks = {track: self.param.tracks.objects.get(track) for track in self.tracks}
         # AwesomeIcon list: https://fontawesome.com/v4/icons/
-        from ipyleaflet import Map, basemaps, Marker, Polyline, AwesomeIcon, AntPath
-        from ipywidgets import Layout
-        ipyleaflet_map = self.map.object
+        from ipyleaflet import Marker, AwesomeIcon 
+        ipyleaflet_map = self.ipyleaflet_map.object
         ipyleaflet_map.center= (float(tracks[self.tracks[0]].segments[0].points[0].lat), float(tracks[self.tracks[0]].segments[0].points[0].lon)),
-        # self.map.object = ipyleaflet_map
-
-        # return self.map
 
         draw_control = ipyleaflet_map.controls[-1]
 
@@ -133,6 +113,31 @@ class TrackManager(Parameterized):
 
         # return panel_map
         return self.map
+
+
+    def create_speed_plots(self):
+        if self.tracks is None:
+            return None
+        def compute_speed(current: Waypoint, next_loc: Waypoint):
+            distance = sqrt((current.lat - next_loc.lat) ** 2 + (current.lon - next_loc.lon) ** 2) * 25000/360
+            # import pdb; pdb.set_trace()
+            time = next_loc.time - current.time
+            return distance / (time.total_seconds() / 3600)
+        plots = []
+        for index, track_index in enumerate(self.tracks):
+            track = self.param.tracks.objects.get(track_index)
+
+            speeds = [compute_speed(c, n ) for c, n in zip(track.segments[0].points, track.segments[0].points[1:])]
+            surface = px.line(x= range(len(speeds)), y= speeds)
+            surface.layout.xaxis["title"] = {"text": "Time"}
+            surface.layout.yaxis["title"] = {"text": "Speed in km/h"}
+            plotly_object = pn.pane.Plotly(surface)
+            plotly_object.width_policy = "max"
+            plotly_object.index = index
+            plots.append((os.path.basename(track_index), plotly_object))
+        tabs = pn.Tabs(*plots)
+        tabs.width_policy = "max"
+        return tabs
 
 
 def create_map(tracks: list[GPX]):
@@ -291,7 +296,7 @@ def create_map(tracks: list[GPX]):
     # return pn.Row(panel_map, butt)
     return panel_map
 
-def create_speed_plots(file_paths):
+def create_seed_plots(file_paths):
     def compute_speed(current: Waypoint, next_loc: Waypoint):
         distance = sqrt((current.lat - next_loc.lat) ** 2 + (current.lon - next_loc.lon) ** 2) * 25000/360
         # import pdb; pdb.set_trace()
@@ -319,11 +324,10 @@ def main(track_files):
         return pn.pane.Markdown("No track found!")
     tracks = [GPX.from_file(file_path).tracks[0] for file_path in track_files]
     folium_map = create_map(tracks)
-    speed_plots = create_speed_plots(track_files)
 
     track_manager = TrackManager()
     track_manager.param.tracks.objects = {file_path: GPX.from_file(file_path).tracks[0] for file_path in track_files}
-    track_manager.map = folium_map
+    track_manager.ipyleaflet_map = folium_map
 
     template = pn.template.BootstrapTemplate(
             title= "Run Plotter",
@@ -332,35 +336,37 @@ def main(track_files):
                     track_manager,
                     # folium_map,
                     track_manager.create_map,
-                    speed_plots,
+                    # speed_plots,
+                    track_manager.create_speed_plots,
                 ],
             )
  
-    def speed_plot_callback(event: Event):
-        from ipyleaflet import Marker, AwesomeIcon
-        global marker
-        if event.name == "hover_data":
-            if event.old:
-                folium_map.object.remove_layer(marker)
-            if event.new:
-                for track in event.new["points"]:
-                    # track_index = track["curveNumber"]
-                    track_index = event.cls.index
-                    segment_index = track["pointIndex"]
-                    selected_segment = tracks[track_index].segments[0].points[segment_index]
-                    # pprint(dir(folium_map.object))
-                    marker = Marker(
-                            location= [float(selected_segment.lat), float(selected_segment.lon)],
-                            icon= AwesomeIcon(
-                                name= "dot-circle-o"
-                            ),
-                            draggable= False,
-                        )
-                    folium_map.object.add_layer(marker)
+    # def speed_plot_callback(event: Event):
+    #     from ipyleaflet import Marker, AwesomeIcon
+    #     global marker
+    #     if event.name == "hover_data":
+    #         if event.old:
+    #             folium_map.object.remove_layer(marker)
+    #         if event.new:
+    #             for track in event.new["points"]:
+    #                 # track_index = track["curveNumber"]
+    #                 track_index = event.cls.index
+    #                 segment_index = track["pointIndex"]
+    #                 selected_segment = tracks[track_index].segments[0].points[segment_index]
+    #                 # pprint(dir(folium_map.object))
+    #                 marker = Marker(
+    #                         location= [float(selected_segment.lat), float(selected_segment.lon)],
+    #                         icon= AwesomeIcon(
+    #                             name= "dot-circle-o"
+    #                         ),
+    #                         draggable= False,
+    #                     )
+    #                 folium_map.object.add_layer(marker)
+    #
+    #
+    # for speed_plot in speed_plots:
+    #     speed_plot.param.watch(speed_plot_callback, ["hover_data"])
 
-
-    for speed_plot in speed_plots:
-        speed_plot.param.watch(speed_plot_callback, ["hover_data"])
     return pn.Column(*template.main)
     # return template
 
