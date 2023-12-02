@@ -28,7 +28,7 @@ class TrackManager(Parameterized):
         if not self.tracks:
             return self.ipyleaflet_map
 
-        tracks = {track: self.param.tracks.objects.get(track) for track in self.tracks}
+        tracks = {track: self.param.tracks.objects.get(track).tracks[0] for track in self.tracks}
         # AwesomeIcon list: https://fontawesome.com/v4/icons/
         from ipyleaflet import Marker, AwesomeIcon 
         ipyleaflet_map = self.ipyleaflet_map.object
@@ -124,7 +124,7 @@ class TrackManager(Parameterized):
             return distance / (time.total_seconds() / 3600)
         plots = []
         for index, track_index in enumerate(self.tracks):
-            track = self.param.tracks.objects.get(track_index)
+            track = self.param.tracks.objects.get(track_index).tracks[0]
 
             speeds = [compute_speed(c, n ) for c, n in zip(track.segments[0].points, track.segments[0].points[1:])]
             surface = px.line(x= range(len(speeds)), y= speeds)
@@ -145,7 +145,7 @@ class TrackManager(Parameterized):
                         # track_index = track["curveNumber"]
                         track_index = event.cls.index
                         segment_index = track["pointIndex"]
-                        selected_segment = self.param.tracks.objects[self.tracks[track_index]].segments[0].points[segment_index]
+                        selected_segment = self.param.tracks.objects[self.tracks[track_index]].tracks[0].segments[0].points[segment_index]
                         # pprint(dir(folium_map.object))
                         self.marker = Marker(
                                 location= [float(selected_segment.lat), float(selected_segment.lon)],
@@ -170,7 +170,7 @@ def create_map(tracks: list[GPX]):
     from ipyleaflet import Map, basemaps, Marker, Polyline, AwesomeIcon, AntPath
     from ipywidgets import Layout
     ipyleaflet_map = Map(
-            center= (float(tracks[0].segments[0].points[0].lat), float(tracks[0].segments[0].points[0].lon)),
+            center= (float(tracks[0].tracks[0].segments[0].points[0].lat), float(tracks[0].tracks[0].segments[0].points[0].lon)),
             # center= (0, 0),
             zoom=16,
             # basemap = basemaps.Stamen.Terrain,
@@ -191,135 +191,10 @@ def create_map(tracks: list[GPX]):
             "opacity": 1.0
         }
     }
-    # draw_control.polygon = {
-    #     "shapeOptions": {
-    #         "fillColor": "#6be5c3",
-    #         "color": "#6be5c3",
-    #         "fillOpacity": 1.0
-    #     },
-    #     "drawError": {
-    #         "color": "#dd253b",
-    #         "message": "Oups!"
-    #     },
-    #     "allowIntersection": False
-    # }
-    # draw_control.circle = {
-    #     "shapeOptions": {
-    #         "fillColor": "#efed69",
-    #         "color": "#efed69",
-    #         "fillOpacity": 1.0
-    #     }
-    # }
-    # draw_control.rectangle = {
-    #     "shapeOptions": {
-    #         "fillColor": "#fca45d",
-    #         "color": "#fca45d",
-    #         "fillOpacity": 1.0
-    #     }
-    # }
 
     ipyleaflet_map.add_control(draw_control)
 
     return pn.panel(ipyleaflet_map)
-    
-    draw_data = []
-
-    for index, track in enumerate(tracks):
-        first_point = track.segments[0].points[0]
-        last_point = track.segments[0].points[-1]
-
-        # ipyleaflet_map.add_layer(
-        #         # Polyline( 
-        #         AntPath(
-        #             # dash_array=[1, 10],
-        #             # delay= 1000,
-        #             color='#7590ba',
-        #             pulse_color='#3f6fba',
-        #             locations = [
-        #                 [
-        #                     float(point.lat),
-        #                     float(point.lon)
-        #                 ] for point in track.segments[0].points
-        #             ],
-        #             # color = "green",
-        #             fill= False,
-        #             smooth_factor= 5,
-        #         )
-        #     )
-        draw_data.append(
-                {
-                    'type': 'Feature',
-                    'track_index': index, # Custom value to keep track of the track to update.
-                    'properties': 
-                    {
-                        'style':
-                        {
-                            'stroke': True,
-                            'color': '#6bc2e5',
-                            'weight': 8,
-                            'opacity': .8,
-                            'fill': False,
-                            'clickable': True,
-                        }
-                    },
-                    'geometry':
-                    {
-                        'type': 'LineString', 
-                        'coordinates':  
-                        [[
-                            float(point.lon),
-                            float(point.lat)
-                        ] for point in track.segments[0].points]
-
-                    }
-                }
-            )
-
-        ipyleaflet_map.add_layer(
-                Marker(
-                    location= [float(last_point.lat), float(last_point.lon)],
-                    icon= AwesomeIcon(
-                        name="check-circle-o",
-                        marker_color= "red"
-                    ),
-                    draggable= False,
-                )
-            )
-        ipyleaflet_map.add_layer(
-                Marker(
-                    location= [float(first_point.lat), float(first_point.lon)],
-                    icon = AwesomeIcon(
-                        name="check-circle-o",
-                        marker_color= "green"
-                    ),
-                    draggable= False,
-                )
-            )
-    draw_control.data = draw_data
-    # return pn.panel(ipyleaflet_map)
-    panel_map = pn.panel(ipyleaflet_map)
-
-    logging.getLogger(__name__)
-    logger.warning(f"{dir(panel_map)=}")
-    logger.warning(f"{dir(panel_map.param)=}")
-    logger.warning(f"{dir(panel_map.params)=}")
-
-
-    import param
-    @param.depends("draw_control.data", watch= True)
-    def log_data(*args, **kwargs):
-        logger.warning(f"{draw_control.data}")
-
-    butt = pn.widgets.Button(name= "Click me")
-
-    def butt_callback(event):
-        logger.warning(f"{draw_control.data=}")
-        draw_control.data = [{'type': 'Feature', 'properties': {'style': {'stroke': True, 'color': '#6bc2e5', 'weight': 8, 'opacity': 1, 'fill': False, 'clickable': True}}, 'geometry': {'type': 'LineString', 'coordinates': [[-0.088878, 51.509744], [-0.073535, 51.508876], [-0.073213, 51.504749], [-0.087097, 51.504829]]}}]
-
-    butt.on_click(butt_callback)
-
-    # return pn.Row(panel_map, butt)
-    return panel_map
 
 def create_seed_plots(file_paths):
     def compute_speed(current: Waypoint, next_loc: Waypoint):
@@ -346,18 +221,24 @@ def create_seed_plots(file_paths):
 def main(track_files):
     if not track_files:
         return pn.pane.Markdown("No track found!")
-    tracks = [GPX.from_file(file_path).tracks[0] for file_path in track_files]
-    folium_map = create_map(tracks)
+    tracks = {file_path:GPX.from_file(file_path) for file_path in track_files}
+    folium_map = create_map(list(tracks.values()))
 
     track_manager = TrackManager()
-    track_manager.param.tracks.objects = {file_path: GPX.from_file(file_path).tracks[0] for file_path in track_files}
+    track_manager.param.tracks.objects = tracks
     track_manager.ipyleaflet_map = folium_map
 
-    template = pn.template.BootstrapTemplate(
+    save_button = pn.widgets.Button(name="Save")
+
+    def save_callback(event):
+        for file_path, track in tracks.items():
+            track.to_file(file_path)
+
+    save_button.on_click(save_callback)
             title= "Run Plotter",
             main= [
                     # "Hello",
-                    track_manager,
+                    pn.Row(track_manager, save_button),
                     # folium_map,
                     track_manager.create_map,
                     # speed_plots,
