@@ -7,8 +7,6 @@ import plotly.express as px
 from gpx.gpx import GPX
 from math import sqrt
 
-from pprint import pprint
-
 import logging
 import os
 
@@ -23,6 +21,7 @@ class TrackManager(Parameterized):
         }
     )
     ipyleaflet_map = param.Parameter(None, precedence= -1)
+    marker: ipyleaflet.Marker = param.Parameter(None, precedence= -1)  # Global Marker 
 
     @param.depends("tracks")
     def create_map(self):
@@ -35,7 +34,7 @@ class TrackManager(Parameterized):
         ipyleaflet_map = self.ipyleaflet_map.object
         ipyleaflet_map.center= (float(tracks[self.tracks[0]].segments[0].points[0].lat), float(tracks[self.tracks[0]].segments[0].points[0].lon)),
 
-        draw_control = ipyleaflet_map.controls[-1]
+        draw_control: ipyleaflet.DrawControl = ipyleaflet_map.controls[-1]
 
         def update_track(*args, **kwargs):
             logger.warning(f"{args=}")
@@ -48,7 +47,7 @@ class TrackManager(Parameterized):
                     point.lon = new_location[1]
                 print(self)
 
-        # TODO: Only add the callback once
+        draw_control._draw_callbacks.callbacks.clear()
         draw_control.on_draw(update_track)
 
         draw_data = []
@@ -112,8 +111,7 @@ class TrackManager(Parameterized):
         # panel_map = pn.panel(ipyleaflet_map)
 
         # return panel_map
-        return self.map
-
+        return self.ipyleaflet_map
 
     @param.depends("tracks")
     def create_speed_plots(self):
