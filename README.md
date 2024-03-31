@@ -1,4 +1,4 @@
-A simple interactive app to look at tracked runs. It aims to be very similar to [GPX Studio]https://gpx.studio/ but also add tools to extract trends accross runs.
+A simple interactive app to look at tracked runs. It aims to be very similar to [GPX Studio](https://gpx.studio/) but also add tools to extract trends accross runs.
 
 Setup
 -----
