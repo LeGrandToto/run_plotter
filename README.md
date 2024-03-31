@@ -19,7 +19,7 @@ Start the application
 The application requires to be provided with a list of [GPS Exchange formated](https://en.wikipedia.org/wiki/GPS_Exchange_Format) files. You might get your GPX files by asking for your data to your run tracking provider.
 
 ```bash
-panel serve --autoreload app.py --args ~/Documents/01-runkeeper-data-export/*.gpx
+panel serve --autoreload app.py --args ./*.gpx
 ```
 
 Roadmap
