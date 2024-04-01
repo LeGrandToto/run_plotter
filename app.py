@@ -1,3 +1,4 @@
+from datetime import datetime
 from gpx.waypoint import Waypoint
 import ipyleaflet
 import panel as pn
@@ -34,21 +35,24 @@ class TrackManager(Parameterized):
         ipyleaflet_map = self.ipyleaflet_map.object
         ipyleaflet_map.center= (float(tracks[self.tracks[0]].segments[0].points[0].lat), float(tracks[self.tracks[0]].segments[0].points[0].lon)),
 
-        draw_control: ipyleaflet.DrawControl = ipyleaflet_map.controls[-1]
+        # if len(tracks) == 1:
+        if True:
+            draw_control: ipyleaflet.DrawControl = ipyleaflet_map.controls[-1]
 
-        def update_track(*args, **kwargs):
-            logger.warning(f"{args=}")
-            logger.warning(f"{kwargs=}")
-            track_index = kwargs.get('geo_json', {}).get('track_index')
-            if track_index is not None:
-                new_locations = [(lat, lon) for lon, lat in kwargs['geo_json']['geometry']['coordinates']]
-                for point, new_location in zip(tracks[track_index].segments[0].points, new_locations):
-                    point.lat = new_location[0]
-                    point.lon = new_location[1]
-                print(self)
+            def update_track(*args, **kwargs):
+                logger.warning(f"{args=}")
+                logger.warning(f"{kwargs=}")
+                track_index = kwargs.get('geo_json', {}).get('track_index')
+                if track_index is not None:
+                    new_locations = [(lat, lon) for lon, lat in kwargs['geo_json']['geometry']['coordinates']]
+                    for point, new_location in zip(tracks[track_index].segments[0].points, new_locations):
 
-        draw_control._draw_callbacks.callbacks.clear()
-        draw_control.on_draw(update_track)
+                        point.lat = new_location[0]
+                        point.lon = new_location[1]
+                    print(self)
+
+            draw_control._draw_callbacks.callbacks.clear()
+            draw_control.on_draw(update_track)
 
         draw_data = []
         ipyleaflet_map.layers = ipyleaflet_map.layers[:1]
@@ -120,20 +124,9 @@ class TrackManager(Parameterized):
         def compute_speed(current: Waypoint, next_loc: Waypoint):
             distance = sqrt((current.lat - next_loc.lat) ** 2 + (current.lon - next_loc.lon) ** 2) * 25000/360
             # import pdb; pdb.set_trace()
-            time = next_loc.time - current.time
-            return distance / (time.total_seconds() / 3600)
-        plots = []
-        for index, track_index in enumerate(self.tracks):
-            track = self.param.tracks.objects.get(track_index).tracks[0]
-
-            speeds = [compute_speed(c, n ) for c, n in zip(track.segments[0].points, track.segments[0].points[1:])]
-            surface = px.line(x= range(len(speeds)), y= speeds)
-            surface.layout.xaxis["title"] = {"text": "Time"}
-            surface.layout.yaxis["title"] = {"text": "Speed in km/h"}
-            plotly_object = pn.pane.Plotly(surface)
-            plotly_object.width_policy = "max"
-            plotly_object.index = index
-            plots.append((os.path.basename(track_index), plotly_object))
+            if isinstance(next_loc.time, datetime) and isinstance(current.time, datetime):
+                time = next_loc.time - current.time
+                return distance / ((time.total_seconds() + time.microseconds) / 3600)
 
         def speed_plot_callback(event: Event):
             from ipyleaflet import Marker, AwesomeIcon
@@ -156,11 +149,38 @@ class TrackManager(Parameterized):
                             )
                         self.ipyleaflet_map.object.add_layer(self.marker)
 
+        def create_speed_plot(index, track_index):
+            track = self.param.tracks.objects.get(track_index).tracks[0]
+
+            speeds = [compute_speed(c, n ) for c, n in zip(track.segments[0].points, track.segments[0].points[1:])]
+            surface = px.line(x= range(len(speeds)), y= speeds)
+            surface.layout.xaxis["title"] = {"text": "Time"}
+            surface.layout.yaxis["title"] = {"text": "Speed in km/h"}
+            plotly_object = pn.pane.Plotly(surface)
+            plotly_object.width_policy = "max"
+            plotly_object.index = index
+            plotly_object.param.watch(speed_plot_callback, ["hover_data"])
+            return plotly_object
+
+        plots = []
+        for index, track_index in enumerate(self.tracks):
+            speed_plot = create_speed_plot(index, track_index)
+            track_plot = pn.Row(
+                    pn.Column(
+                        pn.widgets.StaticText(name='Total distance', value='A string'),
+                        pn.widgets.StaticText(name='Total time', value='A string'),
+                        pn.widgets.StaticText(name='Average speed', value='A string'),
+                        pn.widgets.StaticText(name='Calories burnt', value='Don\'t know'),
+                        ),
+                    speed_plot
+                    , width_policy= "max"
+                    )
+            # plots.append((os.path.basename(track_index), speed_plot))
+            plots.append((os.path.basename(track_index), track_plot))
+
+
         tabs = pn.Tabs(*plots)
         tabs.width_policy = "max"
-
-        for speed_plot in tabs:
-            speed_plot.param.watch(speed_plot_callback, ["hover_data"])
 
         return tabs
 
@@ -246,7 +266,6 @@ if __name__ == "__main__":
     from panel.command import main as panel_main
     import sys
     import glob
-
 
     sys.argv = ["panel", "serve", __file__, "--args"] + glob.glob("/home/marc/trace_*.gpx")
 
