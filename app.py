@@ -196,28 +196,6 @@ def create_map(tracks: list[GPX]):
 
     return pn.panel(ipyleaflet_map)
 
-def create_seed_plots(file_paths):
-    def compute_speed(current: Waypoint, next_loc: Waypoint):
-        distance = sqrt((current.lat - next_loc.lat) ** 2 + (current.lon - next_loc.lon) ** 2) * 25000/360
-        # import pdb; pdb.set_trace()
-        time = next_loc.time - current.time
-        return distance / (time.total_seconds() / 3600)
-    plots = []
-    for index, file_path in enumerate(file_paths):
-        track = GPX.from_file(file_path).tracks[0]
-
-        speeds = [compute_speed(c, n ) for c, n in zip(track.segments[0].points, track.segments[0].points[1:])]
-        surface = px.line(x= range(len(speeds)), y= speeds)
-        surface.layout.xaxis["title"] = {"text": "Time"}
-        surface.layout.yaxis["title"] = {"text": "Speed in km/h"}
-        plotly_object = pn.pane.Plotly(surface)
-        plotly_object.width_policy = "max"
-        plotly_object.index = index
-        plots.append((os.path.basename(file_path), plotly_object))
-    tabs = pn.Tabs(*plots)
-    tabs.width_policy = "max"
-    return tabs
-
 def main(track_files):
     if not track_files:
         return pn.pane.Markdown("No track found!")
